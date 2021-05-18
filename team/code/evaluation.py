@@ -65,7 +65,7 @@ def _evaluation(preds, labels, slot_meta):
             guid_compare_dict[main_guid]=input_dict
         
     result = evaluator.compute()
-    print(result)
+    # print(result)
     return result,wrong_list,correct_list,guid_compare_dict
 
 

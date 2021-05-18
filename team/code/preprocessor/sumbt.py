@@ -28,11 +28,11 @@ class SUMBTPreprocessor(DSTPreprocessor):
         if args.use_convert_ont:
             self.convert_time_dict = args.convert_time_dict
         
-            if isinstance(self.convert_time_dict['convert'], str):
-                self.convert_time_dict['convert'] = getattr(import_module('change_ont_value'),
-                    self.convert_time_dict['convert'].split('.')[1])
-                self.convert_time_dict['revert'] = getattr(import_module('change_ont_value'),
-                    self.convert_time_dict['revert'].split('.')[1])
+        if isinstance(self.convert_time_dict['convert'], str):
+            self.convert_time_dict['convert'] = getattr(import_module('change_ont_value'),
+                self.convert_time_dict['convert'].split('.')[1])
+            self.convert_time_dict['revert'] = getattr(import_module('change_ont_value'),
+                self.convert_time_dict['revert'].split('.')[1])
 
     def _convert_example_to_feature(self, example):
         guid = example[0].guid.rsplit("-", 1)[0]  # dialogue_idx
@@ -73,6 +73,11 @@ class SUMBTPreprocessor(DSTPreprocessor):
                 slot_dict = {}
             for slot_type in self.slot_meta:
                 value = slot_dict.get(slot_type, "none")
+
+                if self.use_convert_ont:
+                    if self.convert_time_dict is not None and \
+                        slot_type in self.convert_time_dict['applied']:
+                        value = self.convert_time_dict['convert'](value)
                 
                 if self.use_convert_ont:
                     if self.convert_time_dict is not None and \

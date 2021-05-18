@@ -11,7 +11,7 @@ import copy
 import yaml
 import json
 
-with open('/opt/ml/p3-dst-dts/team/code/conf.yml') as f:
+with open('/opt/ml/project//team/code/conf2.yml') as f:
     conf = yaml.load(f, Loader=yaml.FullLoader)
 
 conf = copy.deepcopy(conf['SharedPrams'])

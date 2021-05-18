@@ -5,7 +5,9 @@ import json
 import os
 from tqdm.auto import tqdm
 import torch
+import pickle
 from transformers import AutoTokenizer
+from transformers import BertPreTrainedModel, BertModel, BertConfig
 from data_utils import (
     load_dataset, 
     get_examples_from_dialogues, 
@@ -127,6 +129,14 @@ def get_data(args):
 
     return data, slot_meta, ontology
 
+def convert_train_val_features(processor, train_examples, dev_examples, dev_data):
+    train_features = processor.convert_examples_to_features(train_examples, which='train')
+    if dev_data is not None:
+        dev_features = processor.convert_examples_to_features(dev_examples, which='val')
+    else:
+        dev_features = None
+    return train_features, dev_features
+
 def get_stuff(args, train_data, dev_data, slot_meta, ontology):
     if args.preprocessor == 'TRADEPreprocessor':
         user_first = False
@@ -168,19 +178,34 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
     processor = getattr(import_module('preprocessor'), args.preprocessor)(
         slot_meta, tokenizer, **processor_kwargs
     )
-    args.vocab_size = len(tokenizer)
 
     if args.preprocessor == 'TRADEPreprocessor':
         args.n_gate = len(processor.gating2id) # gating 갯수 none, dontcare, ptr
 
     # Extracting Featrues
     # print('Converting examples to features')
-    train_features = processor.convert_examples_to_features(train_examples, which='train')
-    if dev_data is not None:
-        dev_features = processor.convert_examples_to_features(dev_examples, which='val')
+    if args.use_cache_examples2features:
+        postfix = '_small' if args.use_small_data else ''
+        if not os.path.exists(f'{args.data_dir}/cache'):
+            os.mkdir(f'{args.data_dir}/cache')
+        if args.refresh_cache or not os.path.exists(f'{args.data_dir}/cache/{args.preprocessor}/train{postfix}.pkl'):
+            print('Saving to Cache')
+            train_features, dev_features = convert_train_val_features(processor, 
+                train_examples, dev_examples, dev_data)
+
+            if not os.path.exists(f'{args.data_dir}/cache/{args.preprocessor}'):
+                os.mkdir(f'{args.data_dir}/cache/{args.preprocessor}')
+
+            pickle.dump(train_features, open(f'{args.data_dir}/cache/{args.preprocessor}/train{postfix}.pkl', 'wb'))
+            pickle.dump(dev_features, open(f'{args.data_dir}/cache/{args.preprocessor}/dev{postfix}.pkl', 'wb'))
+        else:
+            print('Loaded from Cache')
+            train_features = pickle.load(open(f'{args.data_dir}/cache/{args.preprocessor}/train{postfix}.pkl', 'rb'))
+            dev_features = pickle.load(open(f'{args.data_dir}/cache/{args.preprocessor}/dev{postfix}.pkl', 'rb'))
+
     else:
-        dev_features = None
-    # print('Done converting examples to features')
+        train_features, dev_features = convert_train_val_features(processor, 
+                train_examples, dev_examples, dev_data)
     
     return tokenizer, processor, train_features, dev_features
 
@@ -219,6 +244,7 @@ def get_model(args, tokenizer, ontology, slot_meta):
         model_kwargs = AttrDict(
             slot_meta=tokenized_slot_meta
         )
+        from_pretrained=False
     elif args.ModelName == 'SUMBT':
         slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, args.max_label_length)
         num_labels = [len(s) for s in slot_values_ids]
@@ -227,20 +253,31 @@ def get_model(args, tokenizer, ontology, slot_meta):
             num_labels=num_labels,
             device=args.device,
         )
+        from_pretrained=False
     elif args.ModelName == 'SOM_DST':
         model_kwargs = AttrDict(
             n_op=4,
             n_domain=5,
             update_id=1,
-            len_tokenizer=len(tokenizer)
+            len_tokenizer=len(tokenizer),
+            slot_token_id=tokenizer.encode('[SLOT]', add_special_tokens=False)[0],
         )
+        from_pretrained=True
     else:
         raise NotImplementedError()
 
     pbar = tqdm(desc=f'Making {args.model_class} model -- waiting...', bar_format='{desc} -> {elapsed}')
-    model = getattr(import_module('model'), args.model_class)(
-        args, **model_kwargs
-    )
+    if from_pretrained:
+        model_config = BertConfig.from_pretrained(args.model_name_or_path)
+        # model_config.dropout = args.dropout
+        # model_config.attention_probs_dropout_prob = args.attention_probs_dropout_prob
+        # model_config.hidden_dropout_prob = args.hidden_dropout_prob
+
+        model = getattr(import_module('model'), args.model_class)(model_config, **model_kwargs)
+    else:
+        model = getattr(import_module('model'), args.model_class)(
+            args, **model_kwargs
+        )
     pbar.set_description(f'Making {args.model_class} model -- DONE')    
     pbar.close()
 
@@ -253,5 +290,11 @@ def get_model(args, tokenizer, ontology, slot_meta):
         print('Initializing slot value lookup --------------')
         model.initialize_slot_value_lookup(slot_values_ids, slot_type_ids)  # Tokenized Ontology의 Pre-encoding using BERT_SV        
         print('Finished initializing slot value lookup -----')
+    if args.ModelName == 'SOM_DST':
+        added = ['[SLOT]', '[A-U]', '[S-V]', '[NULL]', '[EOS]']
+        for add_tok in added:
+            add_tok_idx = tokenizer.encode(add_tok, add_special_tokens=False)[0]
+            model.encoder.bert.embeddings.word_embeddings.weight.data[add_tok_idx].normal_(mean=0.0,
+                     std=0.02)
 
     return model

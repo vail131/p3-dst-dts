@@ -55,6 +55,7 @@ def som_dst_train_loop(args, model, batch, loss_fnc):
 
     # Forward
     with autocast(enabled=args.use_amp):
+
         domain_scores, state_scores, gen_scores = model(input_ids, segment_ids,
              state_position_ids, input_masks, max_value, op_ids, max_update, tf)
         loss_dict = loss_fnc(domain_scores, state_scores, gen_scores,

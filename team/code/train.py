@@ -90,7 +90,10 @@ def train(config_root: str):
         given_val_idxs = json.load(open(f'{args.train_from_trained}/dev_idxs.json', 'r'))
     elif args.use_val_idxs is not None:
         print(f'loading only val-idxs from {args.use_val_idxs}')
-        given_val_idxs = json.load(open(f'{args.use_val_idxs}/dev_idxs.json', 'r'))
+        if args.use_val_idxs.endswith('.pickle'):
+            given_val_idxs = pickle.load(open(f'{args.use_val_idxs}', 'rb'))
+        else:
+            given_val_idxs = json.load(open(f'{args.use_val_idxs}/dev_idxs.json', 'r'))
     else:
         given_val_idxs = None
 
@@ -150,27 +153,47 @@ def train(config_root: str):
     # Optimizer 및 Scheduler 선언
     ### 이 부분은 SUMBT에만 있던거
     ### TODO: args.no_decay로 하면 어떨까?
-    no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": args.weight_decay,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
-    ################################
-    ######### Train step ###########
-    ################################
-    n_epochs = args.num_train_epochs
-    t_total = len(train_loader) * n_epochs
-    warmup_steps = int(t_total * args.warmup_ratio)
-    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
-    )
+    if args.ModelName == 'SOM_DST':
+        no_decay = ["bias", "LayerNorm.weight", "LayerNorm.weight"]
+        enc_param_optimizer = list(model.encoder.named_parameters())
+        enc_optimizer_grouped_parameters = [
+            {'params': [p for n, p in enc_param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
+            {'params': [p for n, p in enc_param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+            ]
+
+        n_epochs = args.num_train_epochs
+        t_total = len(train_loader) * n_epochs
+        enc_optimizer = AdamW(enc_optimizer_grouped_parameters, lr=args.enc_lr)
+        enc_scheduler = get_linear_schedule_with_warmup(enc_optimizer, int(t_total * args.warmup_ratio),
+                                            num_training_steps=t_total)
+
+        dec_param_optimizer = list(model.decoder.parameters())
+        dec_optimizer = AdamW(dec_param_optimizer, lr=args.dec_lr)
+        dec_scheduler = get_linear_schedule_with_warmup(dec_optimizer, int(t_total * args.warmup_ratio),
+                                            num_training_steps=t_total)
+    else:
+        no_decay = ["bias", "LayerNorm.weight"]
+        optimizer_grouped_parameters = [
+            {
+                "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+                "weight_decay": args.weight_decay,
+            },
+            {
+                "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+                "weight_decay": 0.0,
+            },
+        ]
+        ################################
+        ######### Train step ###########
+        ################################
+        n_epochs = args.num_train_epochs
+        t_total = len(train_loader) * n_epochs
+        warmup_steps = int(t_total * args.warmup_ratio)
+        optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
+        )
+
 
     if not os.path.exists(args.train_result_dir):
         os.mkdir(args.train_result_dir)
@@ -226,16 +249,19 @@ def train(config_root: str):
     if args.ModelName == 'TRADE':
         train_loop = trade_train_loop
         loss_fnc = Trade_Loss(tokenizer.pad_token_id, args.n_gate)
+        val_loss_fnc = loss_fnc
         train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
         inference_func = trade_inference
     elif args.ModelName == 'SUMBT':
         train_loop = submt_train_loop
         loss_fnc = SUBMT_Loss()
+        val_loss_fnc = loss_fnc
         train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
         inference_func = sumbt_inference
     elif args.ModelName == 'SOM_DST':
         train_loop = som_dst_train_loop
-        loss_fnc = SOM_DST_Loss(tokenizer.pad_token_id)
+        loss_fnc = SOM_DST_Loss(tokenizer.pad_token_id, device=args.device)
+        val_loss_fnc = None
         train_loop_kwargs = AttrDict(loss_fnc=loss_fnc)
         inference_func = som_dst_inference
     else:
@@ -257,21 +283,41 @@ def train(config_root: str):
         step = 0
         pbar2.set_description(f'[{epoch}/{n_epochs}] {loss_showing}')
         for step, batch in pbar2:
-            optimizer.zero_grad()
+            if args.ModelName == 'SOM_DST':
+                enc_optimizer.zero_grad()
+                dec_optimizer.zero_grad()
+            else:
+                optimizer.zero_grad()
 
             loss_dict = train_loop(args, model, batch, **train_loop_kwargs)
             loss = loss_dict.loss
             scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
-            nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-            scaler.step(optimizer)
-            
-            scale = scaler.get_scale()
-            scaler.update()
-            step_scheduler = scaler.get_scale() == scale
-            
-            if step_scheduler:
-                scheduler.step()
+
+            if args.ModelName == 'SOM_DST':
+                scaler.unscale_(enc_optimizer)
+                scaler.unscale_(dec_optimizer)
+                nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                scaler.step(enc_optimizer)
+                scaler.step(dec_optimizer)
+                
+                scale = scaler.get_scale()
+                scaler.update()
+                step_scheduler = scaler.get_scale() == scale
+                
+                if step_scheduler:
+                    enc_scheduler.step()
+                    dec_scheduler.step()
+            else:
+                scaler.unscale_(optimizer)
+                nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                scaler.step(optimizer)
+                
+                scale = scaler.get_scale()
+                scaler.update()
+                step_scheduler = scaler.get_scale() == scale
+                
+                if step_scheduler:
+                    scheduler.step()
 
             cpu_loss_dict = {k:v.item() for k, v in loss_dict.items()}
             loss_recorder.add(cpu_loss_dict)
@@ -292,7 +338,7 @@ def train(config_root: str):
             total_step += 1
         pbar2.close()
         val_predictions, val_loss_dict = inference_func(model, dev_loader, processor, args.device, args.use_amp, 
-                loss_fnc=loss_fnc)
+                loss_fnc=val_loss_fnc)
         # 현재 에폭에서 eval_result 외에도 틀린 예측값, ground truth값을 뽑아낸다
         eval_result,now_wrong_list,now_correct_list,guid_compare_dict = _evaluation(val_predictions, dev_labels, slot_meta)
         #eda
@@ -308,13 +354,15 @@ def train(config_root: str):
         print('---------Validation-----------')
         for k, v in eval_result.items():
             print(f"{k}: {v:.4f}")
-        if len(loss_dict) >= 5:
-            loss_showing = f'loss: {loss_dict.loss:.4f}'
-        else:
-            loss_showing = ' '.join([f'{k}: {v:.4f}' for k, v in loss_dict.items()])
-        print(loss_showing)
-        print('------------------------------')
-        wandb_stuff.val_log(args, eval_result, loss_dict, total_step, epoch+1)
+
+        if val_loss_dict is not None:
+            if len(val_loss_dict) >= 5:
+                loss_showing = f'loss: {val_loss_dict.loss:.4f}'
+            else:
+                loss_showing = ' '.join([f'{k}: {v:.4f}' for k, v in val_loss_dict.items()])
+            print(loss_showing)
+            print('------------------------------')
+            wandb_stuff.val_log(args, eval_result, val_loss_dict, total_step, epoch+1)
 
         if best_score < eval_result['joint_goal_accuracy']:
             print("Update Best checkpoint!",)
