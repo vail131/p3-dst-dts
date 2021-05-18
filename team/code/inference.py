@@ -182,6 +182,7 @@ def inference(task_dir:str=None):
 
     config.device = device
 
+    config.use_cache_examples2features = False
     tokenizer, processor, eval_features, _ = get_stuff(config,
                  eval_data, None, slot_meta, ontology)
 

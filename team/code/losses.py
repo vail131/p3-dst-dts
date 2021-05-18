@@ -71,10 +71,9 @@ class SOM_DST_Loss:
     def __call__(self, domain_scores, state_scores, gen_scores,
             domain_ids, op_ids, gen_ids):
         loss_s = self.loss_fnc(state_scores.view(-1, 4), op_ids.view(-1))
-        return AttrDict(
-            loss_state=loss_s,
-            loss=loss_s
-        )
+        # return AttrDict(
+        #     loss=loss_s,
+        # )
         if gen_scores.size(1) == 0:
             loss_g = torch.zeros(1).to(gen_scores.device)
         else:

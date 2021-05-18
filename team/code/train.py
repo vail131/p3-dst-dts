@@ -73,6 +73,8 @@ def train(config_root: str):
         args.filter_old_data = False
     if 'use_val_idxs' not in args:
         args.use_val_idxs = None
+    if 'trained_model_name' not in args:
+        args.trained_model_name = None
 
     if args.train_from_trained is not None:
         trained_config = json.load(open(f'{args.train_from_trained}/exp_config.json'))
@@ -115,7 +117,9 @@ def train(config_root: str):
         model =  get_model(args, tokenizer, ontology, slot_meta)
 
     if args.train_from_trained is not None:
-        ckpt = torch.load(f"{args.train_from_trained}/model-best.bin", map_location="cpu")
+        if args.trained_model_name is None:
+            args.trained_model_name = 'model-best.bin'
+        ckpt = torch.load(f"{args.train_from_trained}/{args.trained_model_name}", map_location="cpu")
         model.load_state_dict(ckpt)
     
     pbar = tqdm(desc=f'Moving model to {args.device} -- waiting...', bar_format='{desc} -> {elapsed}')
@@ -362,7 +366,7 @@ def train(config_root: str):
                 loss_showing = ' '.join([f'{k}: {v:.4f}' for k, v in val_loss_dict.items()])
             print(loss_showing)
             print('------------------------------')
-            wandb_stuff.val_log(args, eval_result, val_loss_dict, total_step, epoch+1)
+        wandb_stuff.val_log(args, eval_result, val_loss_dict, total_step, epoch+1)
 
         if best_score < eval_result['joint_goal_accuracy']:
             print("Update Best checkpoint!",)
@@ -374,8 +378,8 @@ def train(config_root: str):
                 torch.save(model.state_dict(), f"{task_dir}/model-best.bin")
 
         # if epoch % 5 == 4:
-        #     print(f'saving to {args.train_result_dir}/model-{epoch}.bin"')
-        #     torch.save(model.state_dict(), f"{args.train_result_dir}/model-{epoch}.bin")
+        print(f'saving {epoch}')
+        torch.save(model.state_dict(), f"{task_dir}/model-latest.bin")
     print(f"Best checkpoint: {best_checkpoint}",)
     # draw_WrongTrend(wrong_list)
 

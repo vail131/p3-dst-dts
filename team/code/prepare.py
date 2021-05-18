@@ -172,6 +172,8 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
             dev_data, user_first=user_first, use_sys_usr_sys=args.use_sys_usr_sys_turn,
             dialogue_level=dialogue_level, which='val'
         )
+    else:
+        dev_examples = None
 
     # Define Preprocessor
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)

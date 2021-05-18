@@ -71,7 +71,9 @@ SharedPrams:
                                                                 # null 
                                                                 # 디렉토리에 있는 val_idx을 val에 사용함
                                                                 # train_from_trained랑 별도로 사용
-
+    use_cache_examples2features: False # 이거 테스트용으로만 사용해야됨, 정해진 features만 사용됨
+                                      # train, val 나눠서 저장하는게 문제
+    refresh_cache: False
 SUMBT:
     hidden_dim: 300
     learning_rate: !!python/float 5e-5

@@ -36,13 +36,16 @@ def val_log(args, eval_result, loss_dict, step, epoch):
         return 
 
     eval_result = {f'val_{k}':v for k, v in eval_result.items()}
-    if len(loss_dict) > 5:
-        loss_dict = {f'val_loss': loss_dict['loss']}
-    else:
-        loss_dict = {f'val_{k}':v for k, v in loss_dict.items()}
-    loss_dict['epoch'] = epoch
+    eval_result['epoch'] = epoch
     wandb.log(eval_result, step=step)
-    wandb.log(loss_dict, step=step)
+
+    if loss_dict is not None:
+        if len(loss_dict) > 5:
+            loss_dict = {f'val_loss': loss_dict['loss']}
+        else:
+            loss_dict = {f'val_{k}':v for k, v in loss_dict.items()}
+        loss_dict['epoch'] = epoch
+        wandb.log(loss_dict, step=step)
 
 def best_jga_log(args, best_score):
     if not args.wandb['using']:
