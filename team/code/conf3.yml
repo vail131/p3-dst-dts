@@ -1,0 +1,118 @@
+ModelName : TRADE    # {SUMBT, TRADE}
+
+wandb :
+    using: True
+    project: dst
+    entity: rolypolyvg295
+    tags: 
+        - v0
+        - extra-data-finetune
+
+SharedPrams:
+    data_dir: /opt/ml/input/data/train_dataset
+
+    eval_data_dir: /opt/ml/input/data/eval_dataset
+
+    #train시에 나오는 결과물(eda 결과_graph dir, model bin file, inference에서 쓰는 conf)들을 저장
+    train_result_dir: /opt/ml/project/team/code/results 
+    train_file_name: new_dataset_tt.json # new_dataset_tt, train_dials
+    filter_old_data: True
+
+    #prediction files만 저장
+    output_dir: /opt/ml/project/team/predictions
+
+    task_name: extra-data-finetune
+
+    save_model: True
+
+    use_small_data: False # {True | False} -> True면 테스트용으로 다이얼로그 100짜리로 돌림
+
+    train_log_step: 50
+    train_running_loss_len: 50
+
+    use_generation_only: False
+    use_gen_dialog_only: False
+
+    use_amp: False
+    device_pref: cuda
+
+    adam_epsilon: !!python/float 1e-08
+    max_grad_norm: 1.0
+    warmup_ratio: 0
+    weight_decay: 0.01
+    random_seed: 42
+    ontology_root: /opt/ml/input/data/train_dataset/edit_ontology_metro.json #edit_ontology_metro.json
+
+    use_domain_slot: basic # {basic | gen | cat} basic 다 사용,
+                            # gen: prepare.py 상위에 있는 gen_slot_meta에 정의된 gen 사용
+                            # cat: prepare.py gen_slot_meta에 해당하지 않는 slot-meta 사용
+    use_convert_ont: False
+    convert_time: hour_min # {none | time_hour_min | hour_min} 이거 별로
+                                # none: 사용안함
+                                # time_hour_min: 시간 xx시 xx분
+                                # hour_min: xx시 ㅌㅌ분
+    use_sys_usr_sys_turn: True # {False | True} 현재 SYS-USR를 하나의 턴으로 사용하는데
+                                    # SYS-USR-SYS를 하나의 턴으로 사용하기
+
+    train_from_trained: /opt/ml/project/team/code/results/sys_usr_sys
+                             # {null |  모델이 있는 디렉토리}
+                             # null: 사용안함
+                             # 모델이 있는 디렉토리: 해당 디렉토리에서 모델, preprocessor, tokenizer, 
+                             # ontology, slot_meta 가져옴(근데 상세 설정은 안 가져옴, 똑같이 사용할려면 직접 설치해)
+                             # use_domain_slot 필터 작동안함, use_small_data 작동함
+                             # ex) /opt/ml/project/team/code/results/decoder_long
+    use_trained_val_idxs: True # {False | True} 모델 디렉토리에 있는 val_idx 사용 여부
+SUMBT:
+    hidden_dim: 300
+    learning_rate: !!python/float 5e-5
+    num_train_epochs: 10
+    train_batch_size: 8
+    eval_batch_size: 8
+    model_name_or_path: dsksd/bert-ko-small-minimal
+    num_rnn_layers: 1
+    zero_init_rnn: False
+
+    max_seq_length: 64
+    max_label_length: 12
+    attn_head: 4
+    fix_utterance_encoder: False
+
+    distance_metric: euclidean
+    preprocessor: SUMBTPreprocessor
+    model_class: SUMBT
+    use_larger_slot_encoding: True  # True -> [max_label_length, emb_dim]만큼 slot_emb에 사용
+                                    #    nlp 전체 출력 사용
+                                    # False -> emd_dim 만큼 slot_emb에 사용, nlp 출력의 첫번째만 사용
+    use_mean_value_encoding: False # 사용안하는게 이득
+    use_linear_distance_weight: False # 애매, 아주 아주 살짝 좋아짐
+    
+    use_transformer: True # True -> transformer, False -> gru
+    n_transformers: 4 # transfomer block 몇개 중첩으로 사용할건지
+
+TRADE:
+    hidden_size: 768
+    learning_rate: !!python/float 5e-05
+
+    num_train_epochs: 10
+
+    train_batch_size: 8
+    eval_batch_size: 8
+
+    model_name_or_path: dsksd/bert-ko-small-minimal
+    vocab_size: 35000
+    hidden_dropout_prob: 0.1
+    proj_dim: null
+    teacher_forcing_ratio: 0.5
+    n_gate: 5
+    preprocessor: TRADEPreprocessor
+    model_class: TRADE
+
+    use_decoder_ts: True
+    decoder_n_heads: 4
+    decoder_n_layers: 2
+
+    use_zero_segment_id: False # {False | True} True면 segment_id 다 0으로
+
+SOM_DST:
+    preprocessor: SOMDSTPreprocessor
+    model_name_or_path: dsksd/bert-ko-small-minimal

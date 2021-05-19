@@ -107,7 +107,14 @@ class Transformer(nn.Module):
             nn.Linear(output_dim, output_dim),
         )
 
-    def forward(self, x, mask):
+    def forward(self, x, mask, use_no_lookup=False):
+        bs = x.size(0)
+        seq = x.size(1)
+        if use_no_lookup:
+            if mask is None:
+                mask = torch.ones(bs, 1, seq, dtype=torch.long).to(x.device)
+            mask = torch.tril(mask.repeat(1, seq, 1))
+
         tmp = self.layer_norm1(x)
         sub_layer = self.attn(tmp, tmp, tmp, mask)
         x = x + self.dropout(sub_layer)
@@ -118,8 +125,33 @@ class Transformer(nn.Module):
 
         return x
 
+# class Transformer(nn.Module):
+#     def __init__(self, attn_head, output_dim, dropout=0.1):
+#         super().__init__()
+#         self.attn = MultiHeadAttention(attn_head, output_dim, dropout)
+#         self.layer_norm1 = nn.LayerNorm(output_dim)
+#         self.layer_norm2 = nn.LayerNorm(output_dim)
+#         self.dropout = nn.Dropout(dropout)
+#         self.ffwd = nn.Sequential(
+#             nn.Linear(output_dim, output_dim),
+#             nn.GELU(),
+#             nn.Dropout(dropout),
+#             nn.Linear(output_dim, output_dim),
+#         )
+
+#     def forward(self, x, mask):
+#         tmp = self.layer_norm1(x)
+#         sub_layer = self.attn(tmp, tmp, tmp, mask)
+#         x = x + self.dropout(sub_layer)
+
+#         tmp = self.layer_norm2(x)
+#         sub_layer = self.ffwd(tmp)
+#         x = x + self.dropout(sub_layer)
+
+#         return x
+
 class SUMBT(nn.Module):
-    def __init__(self, args, num_labels, device):
+    def __init__(self, args, num_labels, device, use_no_lookup=False):
         super().__init__()
 
         self.hidden_dim = args.hidden_dim
@@ -133,6 +165,7 @@ class SUMBT(nn.Module):
         self.use_larger_slot_encoding = args.use_larger_slot_encoding
         self.use_transformer = args.use_transformer
         self.device = device
+        self.use_no_lookup = use_no_lookup
 
         ### Utterance Encoder
         self.utterance_encoder = AutoForUtteranceEncoding.from_pretrained(
@@ -335,10 +368,11 @@ class SUMBT(nn.Module):
             for transformer in self.transformers:
                 hidden = transformer(
                     hidden,
-                    mask=transformer_mask # [J*B, 1, M]
+                    mask=transformer_mask, # [J*B, 1, M]
+                    use_no_lookup=self.use_no_lookup,
                 ) # [J*B, M, H]
         else:
-            # NBT
+            # NBT       
             if self.zero_init_rnn:
                 h = torch.zeros(
                     self.rnn_num_layers, input_ids.shape[0] * slot_dim, self.hidden_dim

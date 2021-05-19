@@ -129,9 +129,12 @@ def get_data(args):
 
     return data, slot_meta, ontology
 
-def convert_train_val_features(processor, train_examples, dev_examples, dev_data):
-    train_features = processor.convert_examples_to_features(train_examples, which='train')
-    if dev_data is not None:
+def convert_train_val_features(processor, train_examples, dev_examples):
+    if train_examples is not None:
+        train_features = processor.convert_examples_to_features(train_examples, which='train')
+    else:
+        train_features = None
+    if dev_examples is not None:
         dev_features = processor.convert_examples_to_features(dev_examples, which='val')
     else:
         dev_features = None
@@ -162,10 +165,13 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
     else:
         raise NotImplementedError()
 
-    train_examples = get_examples_from_dialogues(
-        train_data, user_first=user_first, use_sys_usr_sys=args.use_sys_usr_sys_turn,
-             dialogue_level=dialogue_level, which='train'
-    )
+    if train_data is not None:
+        train_examples = get_examples_from_dialogues(
+            train_data, user_first=user_first, use_sys_usr_sys=args.use_sys_usr_sys_turn,
+                dialogue_level=dialogue_level, which='train'
+        )
+    else:
+        train_examples = None
 
     if dev_data is not None:
         dev_examples = get_examples_from_dialogues(
@@ -193,7 +199,7 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
         if args.refresh_cache or not os.path.exists(f'{args.data_dir}/cache/{args.preprocessor}/train{postfix}.pkl'):
             print('Saving to Cache')
             train_features, dev_features = convert_train_val_features(processor, 
-                train_examples, dev_examples, dev_data)
+                train_examples, dev_examples)
 
             if not os.path.exists(f'{args.data_dir}/cache/{args.preprocessor}'):
                 os.mkdir(f'{args.data_dir}/cache/{args.preprocessor}')
@@ -207,7 +213,7 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
 
     else:
         train_features, dev_features = convert_train_val_features(processor, 
-                train_examples, dev_examples, dev_data)
+                train_examples, dev_examples)
     
     return tokenizer, processor, train_features, dev_features
 
@@ -251,9 +257,12 @@ def get_model(args, tokenizer, ontology, slot_meta):
         slot_type_ids, slot_values_ids = tokenize_ontology(ontology, tokenizer, args.max_label_length)
         num_labels = [len(s) for s in slot_values_ids]
 
+        if 'use_no_lookup' not in args:
+            args.use_no_lookup = False
         model_kwargs = AttrDict(
             num_labels=num_labels,
             device=args.device,
+            use_no_lookup=args.use_no_lookup,
         )
         from_pretrained=False
     elif args.ModelName == 'SOM_DST':
