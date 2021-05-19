@@ -244,3 +244,4 @@ if __name__ == '__main__':
     # config_root = config_args.config
     # print(f'Using config: {config_root}')
     inference(config_args.task_dir)
+
