@@ -75,6 +75,8 @@ def train(config_root: str):
         args.use_val_idxs = None
     if 'trained_model_name' not in args:
         args.trained_model_name = None
+    if 'val_size' not in args:
+        args.val_size = 0.1
 
     if args.train_from_trained is not None:
         trained_config = json.load(open(f'{args.train_from_trained}/exp_config.json'))
@@ -104,7 +106,7 @@ def train(config_root: str):
             filter_old_data=args.filter_old_data, dev_has_label=True)
     else:
         train_data, dev_data, dev_labels, dev_idxs = load_dataset(data, given_dev_idx=given_val_idxs,
-            filter_old_data=args.filter_old_data)
+            filter_old_data=args.filter_old_data, dev_split=args.val_size)
     
 
     if args.train_from_trained is not None:

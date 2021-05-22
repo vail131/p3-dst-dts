@@ -192,6 +192,8 @@ def get_stuff(args, train_data, dev_data, slot_meta, ontology):
 
     # Extracting Featrues
     # print('Converting examples to features')
+    if 'use_cache_examples2features' not in args:
+        args.use_cache_examples2features = False
     if args.use_cache_examples2features:
         postfix = '_small' if args.use_small_data else ''
         if not os.path.exists(f'{args.data_dir}/cache'):
