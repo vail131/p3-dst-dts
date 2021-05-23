@@ -1,7 +1,92 @@
 import random
 import copy
+def kortime_var(time:str):
+    ori_time=time
+    time=list(map(int,time.split(':')))
+    hour=time[0]
+    minute=time[1]
+    if hour<10:
+        hours='0'+str(hour)
+    if minute<10 and minute!=0:
+        minutes='0'+str(minute)
+    
+    minutes=minute
+    minute='반' if minute==30 else str(minute)+'분'
+    if minute=='0분':
+        minute=''
+        
+    time_arr=set([f'{hour}시 {minute}', f'{hour}시{minute}',ori_time,f'{hour}시{minute}',f'{hour}시 {minute}'])
+    if hour<9:
+        time_arr.add(f'새벽 {hour}시 {minute}')
+        time_arr.add(f'새벽{hour}시 {minute}')
+        time_arr.add(f'새벽{hour}시{minute}')
+    elif hour<12:
+        time_arr.add(f'오전 {hour}시 {minute}')
+        time_arr.add(f'오전{hour}시 {minute}')
+        time_arr.add(f'오전{hour}시{minute}')
+    if hour>=12 and hour<18:
+        time_arr.add(f'낮 {hour}시 {minute}')
+        time_arr.add(f'낮 {hour}시{minute}')
+        time_arr.add(f'오후{hour}시 {minute}')
+        time_arr.add(f'오후{hour}시{minute}')
+        time_arr.add(f'낮 {hour-12}시 {minute}')
+        time_arr.add(f'낮 {hour-12}시{minute}')
+        time_arr.add(f'오후{hour-12}시 {minute}')
+        time_arr.add(f'오후{hour-12}시{minute}')
+    elif hour>=18:
+        time_arr.add(f'오후 {hour}시 {minute}')
+        time_arr.add(f'오후{hour}시 {minute}')
+        time_arr.add(f'오후{hour}시{minute}')
+        time_arr.add(f'저녁 {hour}시 {minute}')
+        time_arr.add(f'저녁{hour}시 {minute}')
+        time_arr.add(f'저녁{hour}시{minute}')
+        time_arr.add(f'오후 {hour-12}시 {minute}')
+        time_arr.add(f'오후{hour-12}시 {minute}')
+        time_arr.add(f'오후{hour-12}시{minute}')
+        time_arr.add(f'저녁 {hour-12}시 {minute}')
+        time_arr.add(f'저녁{hour-12}시 {minute}')
+        time_arr.add(f'저녁{hour-12}시{minute}')
+        time_arr.add(f'밤 {hour-12}시 {minute}')
+        time_arr.add(f'밤{hour-12}시 {minute}')
+        time_arr.add(f'밤{hour-12}시{minute}')
+    if minutes==30:
+        time_arr.add(f'{hour}시 {minutes}분')
+        time_arr.add(f'{hour}시{minutes}분')
+        if hour<9:
+            time_arr.add(f'새벽 {hour}시 {minutes}분')
+            time_arr.add(f'새벽{hour}시 {minute}분')
+            time_arr.add(f'새벽{hour}시{minute}분')
+        elif hour<12:
+            time_arr.add(f'오전 {hour}시 {minutes}분')
+            time_arr.add(f'오전{hour}시 {minutes}분')
+            time_arr.add(f'오전{hour}시{minutes}분')
+        if hour>=12 and hour<18:
+            time_arr.add(f'낮 {hour}시 {minutes}분')
+            time_arr.add(f'낮 {hour}시{minutes}분')
+            time_arr.add(f'오후{hour}시 {minutes}분')
+            time_arr.add(f'오후{hour}시{minutes}분')
+        elif hour>=18:
+            time_arr.add(f'오후 {hour}시 {minutes}분')
+            time_arr.add(f'오후{hour}시 {minutes}분')
+            time_arr.add(f'오후{hour}시{minutes}분')
+            time_arr.add(f'저녁 {hour}시 {minutes}분')
+            time_arr.add(f'저녁{hour}시 {minutes}분')
+            time_arr.add(f'저녁{hour}시{minutes}분')
+            time_arr.add(f'오후 {hour-12}시 {minutes}분')
+            time_arr.add(f'오후{hour-12}시 {minutes}분')
+            time_arr.add(f'오후{hour-12}시{minutes}분')
+            time_arr.add(f'저녁 {hour-12}시 {minutes}분')
+            time_arr.add(f'저녁{hour-12}시 {minutes}분')
+            time_arr.add(f'저녁{hour-12}시{minutes}분')
+            time_arr.add(f'밤 {hour-12}시 {minutes}분')
+            time_arr.add(f'밤{hour-12}시 {minutes}분')
+            time_arr.add(f'밤{hour-12}시{minutes}분')
+    
+    
+    return sorted([x.strip() for x in list(time_arr)],key=lambda x:len(x),reverse=True)
 
-def time2kor(time:str)-> str:
+
+def time2kor(time:str,option=None)-> str:
     """["12:30" 형식의 문자열 시간을 "12시 30분"으로 변경한다. 정각일 경우 "12시"만 리턴]
 
     Args:
@@ -10,12 +95,20 @@ def time2kor(time:str)-> str:
     Returns:
         [str]: [문자열 시간 리턴]
     """
+    ran=random.randrange(0,8)
+    
     l=list(map(int,time.split(':')))
     #5시 00분 정각일 때 "5시" 이렇게 리턴함
+    
     new_time=f'{l[0]}시'+(('') if l[1]==0 else f' {l[1]}분')
+    if l[1]==30:
+        new_time=new_time.replace(f' {l[1]}분',' 반') 
+        if option :
+            new_time=''.join(new_time.split())
+        
     return new_time
 
-def time2ampm(time:str)-> str:
+def time2ampm(time:str,option=None,option2=None)-> str:
     """["12:30" 형식의 문자열 시간을 "오후/오전 12시 30분"으로 변경한다. 정각일 경우 "오전 12시"만 리턴]
 
     Args:
@@ -24,12 +117,21 @@ def time2ampm(time:str)-> str:
     Returns:
         str: [문자열 시간 리턴]
     """
+    ran=random.randrange(0,8)
+    
     l=list(map(int,time.split(':')))
     #5시 00분 정각일 때 "5시" 이렇게 리턴함
     hour=l[0]
     minute=l[1]
     
     new_time=(f'오전 {hour}시' if hour<12 else f"오후 {hour-12}시")+(('') if l[1]==0 else f' {l[1]}분')
+    if l[1]==30:
+        new_time=new_time.replace(f' {l[1]}분',' 반') 
+        if option :
+            new_time=''.join(new_time.split())
+    if '오후' in new_time and option2==None:
+        new_time=new_time.replace('오후','저녁')
+        
     return new_time
 
 def kor2time(kor:str)-> str:
@@ -41,6 +143,7 @@ def kor2time(kor:str)-> str:
     Returns:
         str: ["12:30"]
     """
+    
     kor=kor.split(' ')
     minute=''
     hour=kor[0][0:-1]
@@ -98,28 +201,13 @@ def change_dialogue(dialogue:list,time_dict:dict,transfer_type:str)-> list:
                 for ds in time_dict.keys():
                     new_dialogue=str(new_dialogue).replace(f'{ds}-{time}',f'{ds}-{new_time}')
                 #아직 변경되지 않은 text에 존재하는 시간을 한글버전으로 변경
-                new_dialogue=str(new_dialogue).replace(time,time2kor(new_time))
-                #만일 text에 한글버전 시간이 존재한다면 한글버전 새시간으로 변경함
-                new_dialogue=str(new_dialogue).replace(time2kor(time),time2kor(new_time))
-                new_dialogue=str(new_dialogue).replace(time2ampm(time),time2kor(new_time))
-                new_dialogue=str(new_dialogue).replace(''.join(time2ampm(time)),time2kor(new_time))
-    #오후 oo시 oo분으로 변경
-    elif transfer_type=='ampm':
-        new_data['dialogue_idx']=f"{dialogue['dialogue_idx']}_ampm"
-        for dom_slot,time_set in time_dict.items():
-            for time in time_set:
-                new_time=make_randtime(time)
-#                 print(time,new_time)
-                #state 시간을 새로운 시간으로 변경
-                for ds in time_dict.keys():
-                    new_dialogue=str(new_dialogue).replace(f'{ds}-{time}',f'{ds}-{new_time}')
-                #text에 남아있는 기존 정규형식 시간을 ampm형식으로 변경
-                new_dialogue=str(new_dialogue).replace(time,time2ampm(new_time))
-                #text에 오전/오후 형식으로 시간이 남아있다면 새 시간으로 변경함
-                new_dialogue=str(new_dialogue).replace(time2ampm(time),time2ampm(new_time))
-                new_dialogue=str(new_dialogue).replace(time2kor(time),time2ampm(new_time))
-                new_dialogue=str(new_dialogue).replace(''.join(time2ampm(time)),time2ampm(new_time))
-    
+                for t in kortime_var(time):
+                    if t in new_dialogue:
+                        nt_var=kortime_var(new_time)
+                        ran=random.randrange(0,len(nt_var))
+                        new_dialogue=new_dialogue.replace(t,nt_var[ran])
+                        break
+
     new_data['dialogue']=eval(new_dialogue)
     
     return new_data
@@ -159,15 +247,18 @@ def augmentation(train_dials:list)->list:
                             dom,slot,val=sv.split('-')
                             if val =='dontcare':
                                 continue
-                            if val in dic['text'] or time2kor(val) in dic['text'] or time2ampm(val) in dic['text'] or ''.join(time2kor(val)) in dic['text']:
-                                time_dict[f'{dom}-{slot}'].add(val)
-                            elif idx-1>0 and (time2kor(val) in dial_dial[idx-1]['text'] or time2ampm(val) in dial_dial[idx-1]['text'] or ''.join(time2kor(val)) in dial_dial[idx-1]['text']):
-                                time_dict[f'{dom}-{slot}'].add(val)
+                            for t in kortime_var(val):
+                                if t in dic['text'] or t in dial_dial[idx-1]['text']:
+                                    time_dict[f'{dom}-{slot}'].add(val)
+                                    break
             
             if dict_checker(time_dict):
+#                 ran=random.randrange(0,10)
+#                 if ran<3:
                 new_dataset.append(change_dialogue(dialogue,time_dict,'kor'))
-                new_dataset.append(change_dialogue(dialogue,time_dict,'ampm'))
-                cnt+=2
+#                 else :
+#                     new_dataset.append(change_dialogue(dialogue,time_dict,'ampm'))
+                cnt+=1
     #원본까지 합치고 싶을 때
     # new_dataset.extend(train_dials)
     print(f'-----------{cnt}개를 augmentation하였습니다----------')
