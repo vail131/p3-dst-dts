@@ -7,6 +7,7 @@
 
 ### 사용한 모델
 - ontology 기반의 SUMBT
+
 ![image](https://user-images.githubusercontent.com/52443401/145764250-0fce1a07-d9c9-4941-ba2a-5c0b60d178b0.png)
 
 - open vocab 기반 TRADE
