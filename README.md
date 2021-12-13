@@ -1,6 +1,7 @@
 # p3-dst-dts
 - 기간 : 2021.04.26~2021.05.21
 - 대회 내용 : 다중 도메인(관광/식당/숙소/택시/지하철) 사용자-시스템 대화 데이터를 학습하여 사용자가 원하는 바를 state으로 뽑아내는 과제 (JGA 0.6423, 최종 8등 팀)
+
 ![image](https://user-images.githubusercontent.com/52443401/145763906-75399b3c-22e3-4e42-8476-55d3717e2aa8.png)
 - 수행 요약 : EDA, validation dataset 오류 분석을 통한 방향성 제시, BART를 이용한 CoCo(Controllable Counterfactuals) data augmentation
 
